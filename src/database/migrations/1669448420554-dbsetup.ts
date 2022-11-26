@@ -49,6 +49,7 @@ export class dbsetup1669448420554 implements MigrationInterface {
           { name: 'date', type: 'date' },
           { name: 'from', type: 'time' },
           { name: 'to', type: 'time' },
+          { name: 'isAvailable', type: 'boolean', default: true },
           {
             name: 'createdAt',
             type: 'timestamp',

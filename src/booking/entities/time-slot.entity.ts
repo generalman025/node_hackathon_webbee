@@ -1,4 +1,5 @@
 import {
+  AfterLoad,
   Column,
   Entity,
   JoinColumn,
@@ -25,6 +26,9 @@ export class TimeSlot {
 
   @Column({ type: 'time' })
   to: string;
+
+  @Column()
+  isAvailable: boolean;
 
   @ManyToOne(() => BusinessOwner, (bu) => bu.timeSlots)
   @JoinColumn({ name: 'buId' })
