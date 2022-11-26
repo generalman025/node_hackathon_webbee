@@ -326,6 +326,13 @@ export class dbsetup1669448420554 implements MigrationInterface {
         name: 'booking_time_slot',
         columns: [
           {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
+          {
             name: 'bookingId',
             type: 'integer',
           },
@@ -395,5 +402,6 @@ export class dbsetup1669448420554 implements MigrationInterface {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   public async down(queryRunner: QueryRunner): Promise<void> {}
 }

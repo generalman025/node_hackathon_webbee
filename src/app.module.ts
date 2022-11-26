@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BookingModule } from './booking/booking.module';
+import { typeOrmAsyncConfig } from './config/typeorm.config';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [TypeOrmModule.forRootAsync(typeOrmAsyncConfig), BookingModule],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
