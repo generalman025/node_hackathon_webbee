@@ -34,7 +34,20 @@ export class BookingService {
     private bookingTimeSlotRepository: Repository<BookingTimeSlot>,
   ) {}
 
-  async create(createBookingDto: CreateBookingDto) {
+  public async create(createBookingDto: CreateBookingDto) {
+    const currentDate = dayjs();
+    const currentDateString = currentDate.format('YYYY-MM-DD');
+    const currentTimeString = currentDate.format('HH:mm');
+    if (
+      currentDateString > createBookingDto.date ||
+      (currentDateString === createBookingDto.date &&
+        currentTimeString > createBookingDto.time)
+    ) {
+      throw new Error('Time slot was in the past');
+    }
+
+    await this.generateTimeSlot(createBookingDto.date, createBookingDto.buId);
+
     const configParameter = await this.getConfigParameters(
       createBookingDto.date,
       createBookingDto.buId,
@@ -42,59 +55,41 @@ export class BookingService {
     if (configParameter === null) {
       throw new Error('Configuration Not Found');
     }
-    const defaultEventType = await this.eventTypeRepository.findOne({
-      where: {
-        buId: createBookingDto.buId,
-        isDefault: true,
-      },
-    });
+
+    const defaultEventType = await this.getDefaultEventType(
+      createBookingDto.buId,
+    );
     if (defaultEventType === null) {
       throw new Error('Default Event Type Not Found');
     }
-    const timeSlot = await this.timeSlotRepository.findOne({
-      where: [
-        {
-          buId: createBookingDto.buId,
-          date: createBookingDto.date,
-          from: createBookingDto.time,
-        },
-      ],
-    });
+
+    const timeSlot = await this.getTimeSlot(
+      createBookingDto.buId,
+      createBookingDto.date,
+      createBookingDto.time,
+    );
     if (timeSlot === null) {
       throw new Error('Time Slot does not exist');
     }
 
-    const currentBookingCount = await this.bookingTimeSlotRepository.count({
-      where: [
-        {
-          timeSlotId: timeSlot.id,
-        },
-      ],
-    });
-    if (
-      currentBookingCount + createBookingDto.contacts.length >
-      configParameter.maxClientsPerSlot
-    ) {
+    const currentBookingCount = await this.getCurrentBookingCount(timeSlot);
+    const totalBookingCount =
+      currentBookingCount + createBookingDto.contacts.length;
+    if (totalBookingCount > configParameter.maxClientsPerSlot) {
       throw new Error('Exceed Quota');
     }
 
-    const contacts = createBookingDto.contacts;
-    for (let index = 0; index < contacts.length; index++) {
-      const booking = await this.bookingRepository.insert({
-        buId: createBookingDto.buId,
-        eventTypeId: defaultEventType.id,
-        clientEmail: contacts[index].email,
-        clientFirstname: contacts[index].firstname,
-        clientLastname: contacts[index].lastname,
-      });
-      await this.bookingTimeSlotRepository.insert({
-        bookingId: +booking.identifiers[0].id,
-        timeSlotId: timeSlot.id,
-      });
-    }
+    await this.createBookingTransaction(
+      createBookingDto.buId,
+      createBookingDto.contacts,
+      defaultEventType.id,
+      totalBookingCount,
+      configParameter.maxClientsPerSlot,
+      timeSlot,
+    );
   }
 
-  async findAll() {
+  public async findAll() {
     const currentDate = dayjs();
     const currentDateString = currentDate.format('YYYY-MM-DD');
     const currentTimeString = currentDate.format('HH:mm');
@@ -143,6 +138,65 @@ export class BookingService {
         },
       ],
     });
+  }
+
+  private async getDefaultEventType(buId) {
+    return await this.eventTypeRepository.findOne({
+      where: {
+        buId,
+        isDefault: true,
+      },
+    });
+  }
+
+  private async getTimeSlot(buId, date, time) {
+    return await this.timeSlotRepository.findOne({
+      where: [
+        {
+          buId,
+          date,
+          from: time,
+        },
+      ],
+    });
+  }
+
+  private async getCurrentBookingCount(timeSlot) {
+    return await this.bookingTimeSlotRepository.count({
+      where: [
+        {
+          timeSlotId: timeSlot.id,
+        },
+      ],
+    });
+  }
+
+  private async createBookingTransaction(
+    buId,
+    contacts,
+    eventTypeId,
+    totalBookingCount,
+    maxClientsPerSlot,
+    timeSlot,
+  ) {
+    for (let index = 0; index < contacts.length; index++) {
+      const booking = await this.bookingRepository.insert({
+        buId: buId,
+        eventTypeId: eventTypeId,
+        clientEmail: contacts[index].email,
+        clientFirstname: contacts[index].firstname,
+        clientLastname: contacts[index].lastname,
+      });
+      await this.bookingTimeSlotRepository.insert({
+        bookingId: +booking.identifiers[0].id,
+        timeSlotId: timeSlot.id,
+      });
+    }
+
+    if (totalBookingCount == maxClientsPerSlot) {
+      timeSlot.isAvailable = false;
+      await this.timeSlotRepository.save(timeSlot);
+    }
   }
 
   private async generateTimeSlot(targetDate, buId) {
@@ -239,7 +293,7 @@ export class BookingService {
     let from = '',
       to = '';
     switch (dayOfWeek) {
-      case 0: //TODO: Enumeration
+      case 0:
         from = configParameter.sundayOpenFrom;
         to = configParameter.sundayOpenTo;
         break;
