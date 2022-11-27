@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -35,6 +40,10 @@ export class BookingService {
   ) {}
 
   public async create(createBookingDto: CreateBookingDto) {
+    // if (!dayjs(createBookingDto.date, 'YYYY-MM-DD', true).isValid()) {
+    //   throw new Error('Date is invalid');
+    // }
+
     const currentDate = dayjs();
     const currentDateString = currentDate.format('YYYY-MM-DD');
     const currentTimeString = currentDate.format('HH:mm');
@@ -43,9 +52,18 @@ export class BookingService {
       (currentDateString === createBookingDto.date &&
         currentTimeString > createBookingDto.time)
     ) {
-      throw new Error('Time slot was in the past');
+      throw new BadRequestException('Date/Time was in the past');
     }
 
+    if (this.businessOwnerExist(createBookingDto.buId)) {
+      throw new NotFoundException('Business Owner was Not Found');
+    }
+
+    if (createBookingDto.contacts.length === 0) {
+      throw new BadRequestException('No Contact was found');
+    }
+
+    // Generate / Check for Time Slot
     await this.generateTimeSlot(createBookingDto.date, createBookingDto.buId);
 
     const configParameter = await this.getConfigParameters(
@@ -53,14 +71,14 @@ export class BookingService {
       createBookingDto.buId,
     );
     if (configParameter === null) {
-      throw new Error('Configuration Not Found');
+      throw new NotFoundException('Configuration was Not Found');
     }
 
     const defaultEventType = await this.getDefaultEventType(
       createBookingDto.buId,
     );
     if (defaultEventType === null) {
-      throw new Error('Default Event Type Not Found');
+      throw new NotFoundException('Default Event Type was Not Found');
     }
 
     const timeSlot = await this.getTimeSlot(
@@ -69,14 +87,14 @@ export class BookingService {
       createBookingDto.time,
     );
     if (timeSlot === null) {
-      throw new Error('Time Slot does not exist');
+      throw new NotFoundException('Time Slot does not exist');
     }
 
     const currentBookingCount = await this.getCurrentBookingCount(timeSlot);
     const totalBookingCount =
       currentBookingCount + createBookingDto.contacts.length;
     if (totalBookingCount > configParameter.maxClientsPerSlot) {
-      throw new Error('Exceed Quota');
+      throw new ConflictException('Exceed Quota');
     }
 
     await this.createBookingTransaction(
@@ -138,6 +156,18 @@ export class BookingService {
         },
       ],
     });
+  }
+
+  private async businessOwnerExist(buId) {
+    return (
+      (await this.businessOwnerRepository.count({
+        where: [
+          {
+            id: buId,
+          },
+        ],
+      })) === 0
+    );
   }
 
   private async getDefaultEventType(buId) {

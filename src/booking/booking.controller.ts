@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, ValidationPipe } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -7,7 +7,9 @@ export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
   @Post()
-  createBooking(@Body() createBookingDto: CreateBookingDto) {
+  createBooking(
+    @Body(new ValidationPipe()) createBookingDto: CreateBookingDto,
+  ) {
     return this.bookingService.create(createBookingDto);
   }
 
