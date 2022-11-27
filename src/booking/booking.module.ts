@@ -11,7 +11,7 @@ import { BookingTimeSlot } from './entities/booking-time-slot.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { EventType } from './entities/event-type.entity';
 
-@Module({
+export const bookingModuleConfig = {
   imports: [
     TypeOrmModule.forFeature([
       BusinessOwner,
@@ -26,5 +26,7 @@ import { EventType } from './entities/event-type.entity';
   ],
   controllers: [BookingController],
   providers: [BookingService],
-})
+};
+
+@Module(bookingModuleConfig)
 export class BookingModule {}

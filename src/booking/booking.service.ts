@@ -40,10 +40,6 @@ export class BookingService {
   ) {}
 
   public async create(createBookingDto: CreateBookingDto) {
-    // if (!dayjs(createBookingDto.date, 'YYYY-MM-DD', true).isValid()) {
-    //   throw new Error('Date is invalid');
-    // }
-
     const currentDate = dayjs();
     const currentDateString = currentDate.format('YYYY-MM-DD');
     const currentTimeString = currentDate.format('HH:mm');
@@ -55,7 +51,7 @@ export class BookingService {
       throw new BadRequestException('Date/Time was in the past');
     }
 
-    if (this.businessOwnerExist(createBookingDto.buId)) {
+    if (!(await this.businessOwnerExist(createBookingDto.buId))) {
       throw new NotFoundException('Business Owner was Not Found');
     }
 
@@ -155,6 +151,11 @@ export class BookingService {
           date: MoreThanOrEqual(currentDateString),
         },
       ],
+      order: {
+        buId: 'ASC',
+        date: 'ASC',
+        from: 'ASC',
+      },
     });
   }
 
@@ -166,7 +167,7 @@ export class BookingService {
             id: buId,
           },
         ],
-      })) === 0
+      })) > 0
     );
   }
 
