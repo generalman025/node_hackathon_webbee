@@ -9,14 +9,12 @@ import { BusinessOwner } from './entities/business-owner.entity';
 import { Booking } from './entities/booking.entity';
 import { BookingTimeSlot } from './entities/booking-time-slot.entity';
 import { TimeSlot } from './entities/time-slot.entity';
-import { EventType } from './entities/event-type.entity';
 
 export const bookingModuleConfig = {
   imports: [
     TypeOrmModule.forFeature([
       BusinessOwner,
       TimeSlot,
-      EventType,
       UnavailableTimePeriod,
       UnavailableDate,
       ConfigParameter,

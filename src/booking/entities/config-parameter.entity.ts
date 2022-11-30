@@ -72,6 +72,9 @@ export class ConfigParameter {
   @Column({ type: 'date' })
   activeTo: string;
 
+  @Column()
+  bookingDuration: number;
+
   @ManyToOne(() => BusinessOwner, (bu) => bu.configParameters)
   @JoinColumn({ name: 'buId' })
   businessOwner: BusinessOwner;

@@ -11,7 +11,6 @@ import { BookingTimeSlot } from './entities/booking-time-slot.entity';
 import { Booking } from './entities/booking.entity';
 import { BusinessOwner } from './entities/business-owner.entity';
 import { ConfigParameter } from './entities/config-parameter.entity';
-import { EventType } from './entities/event-type.entity';
 import { TimeSlot } from './entities/time-slot.entity';
 import { UnavailableDate } from './entities/unavailable-date.entity';
 import { UnavailableTimePeriod } from './entities/unavailable-time-period.entity';
@@ -25,8 +24,6 @@ export class BookingService {
     private businessOwnerRepository: Repository<BusinessOwner>,
     @InjectRepository(TimeSlot)
     private timeSlotRepository: Repository<TimeSlot>,
-    @InjectRepository(EventType)
-    private eventTypeRepository: Repository<EventType>,
     @InjectRepository(UnavailableTimePeriod)
     private unavailableTimePeriodRepository: Repository<UnavailableTimePeriod>,
     @InjectRepository(UnavailableDate)
@@ -70,11 +67,11 @@ export class BookingService {
       throw new NotFoundException('Configuration was Not Found');
     }
 
-    const defaultEventType = await this.getDefaultEventType(
-      createBookingDto.buId,
-    );
-    if (defaultEventType === null) {
-      throw new NotFoundException('Default Event Type was Not Found');
+    if (
+      dayjs(createBookingDto.date).diff(currentDate, 'day') >=
+      configParameter.bookingDuration
+    ) {
+      throw new BadRequestException('Booking Duration is reach the limit');
     }
 
     const timeSlot = await this.getTimeSlot(
@@ -96,7 +93,6 @@ export class BookingService {
     await this.createBookingTransaction(
       createBookingDto.buId,
       createBookingDto.contacts,
-      defaultEventType.id,
       totalBookingCount,
       configParameter.maxClientsPerSlot,
       timeSlot,
@@ -107,6 +103,7 @@ export class BookingService {
     const currentDate = dayjs();
     const currentDateString = currentDate.format('YYYY-MM-DD');
     const currentTimeString = currentDate.format('HH:mm');
+    const maxBookingDuration = 7;
 
     // Generate time slots
     const bus = await this.businessOwnerRepository.find();
@@ -118,7 +115,10 @@ export class BookingService {
       );
       if (configParameter === null) continue;
 
-      while (runningDate.format('YYYY-MM-DD') <= configParameter.activeTo) {
+      while (
+        runningDate.format('YYYY-MM-DD') <= configParameter.activeTo &&
+        runningDate.diff(currentDate, 'day') <= maxBookingDuration
+      ) {
         await this.generateTimeSlot(
           runningDate.format('YYYY-MM-DD'),
           bus[index].id,
@@ -171,15 +171,6 @@ export class BookingService {
     );
   }
 
-  private async getDefaultEventType(buId) {
-    return await this.eventTypeRepository.findOne({
-      where: {
-        buId,
-        isDefault: true,
-      },
-    });
-  }
-
   private async getTimeSlot(buId, date, time) {
     return await this.timeSlotRepository.findOne({
       where: [
@@ -205,7 +196,6 @@ export class BookingService {
   private async createBookingTransaction(
     buId,
     contacts,
-    eventTypeId,
     totalBookingCount,
     maxClientsPerSlot,
     timeSlot,
@@ -213,7 +203,6 @@ export class BookingService {
     for (let index = 0; index < contacts.length; index++) {
       const booking = await this.bookingRepository.insert({
         buId: buId,
-        eventTypeId: eventTypeId,
         clientEmail: contacts[index].email,
         clientFirstname: contacts[index].firstname,
         clientLastname: contacts[index].lastname,
@@ -231,8 +220,20 @@ export class BookingService {
   }
 
   private async generateTimeSlot(targetDate, buId) {
-    if (await this.timeSlotExists(buId, targetDate)) {
-      return; // Already generated time slots
+    if (await this.isUnavailableDate(targetDate, buId)) {
+      const timeSlots = await this.timeSlotRepository.find({
+        where: [
+          {
+            date: targetDate,
+          },
+        ],
+      });
+      for (let index = 0; index < (await timeSlots).length; index++) {
+        const timeSlot = timeSlots[index];
+        timeSlot.isAvailable = false;
+        await this.timeSlotRepository.save(timeSlot);
+      }
+      return; // It's unavailable day
     }
 
     const configParameter = await this.getConfigParameters(targetDate, buId);
@@ -240,8 +241,32 @@ export class BookingService {
       return; // Given date isn't fall in active range
     }
 
-    if (await this.isUnavailableDate(targetDate, buId)) {
-      return; // It's unavailable day
+    if (await this.timeSlotExists(buId, targetDate)) {
+      // Update the Status of Slot
+      const timeSlots = await this.timeSlotRepository.find({
+        where: [
+          {
+            date: targetDate,
+          },
+        ],
+      });
+      for (let index = 0; index < (await timeSlots).length; index++) {
+        const timeSlot = timeSlots[index];
+        const bookingTimeSlots = await this.bookingTimeSlotRepository.find({
+          where: [
+            {
+              timeSlotId: timeSlot.id,
+            },
+          ],
+        });
+        if (bookingTimeSlots.length < configParameter.maxClientsPerSlot) {
+          timeSlot.isAvailable = true;
+        } else {
+          timeSlot.isAvailable = false;
+        }
+        await this.timeSlotRepository.save(timeSlot);
+      }
+      return; // Already generated time slots
     }
 
     // Collect all unavailable periods

@@ -76,48 +76,6 @@ export class dbsetup1669448420554 implements MigrationInterface {
 
     await queryRunner.createTable(
       new Table({
-        name: 'event_type',
-        columns: [
-          {
-            name: 'id',
-            type: 'integer',
-            isPrimary: true,
-            isGenerated: true,
-            generationStrategy: 'increment',
-          },
-          {
-            name: 'buId',
-            type: 'integer',
-          },
-          { name: 'name', type: 'varchar' },
-          { name: 'numberOfSlot', type: 'integer' },
-          { name: 'isDefault', type: 'boolean' },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      'event_type',
-      new TableForeignKey({
-        columnNames: ['buId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'business_owner',
-        onDelete: 'CASCADE',
-      }),
-    );
-
-    await queryRunner.createTable(
-      new Table({
         name: 'unavailable_time_period',
         columns: [
           {
@@ -243,6 +201,7 @@ export class dbsetup1669448420554 implements MigrationInterface {
           { name: 'sundayOpenTo', type: 'time', isNullable: true },
           { name: 'activeFrom', type: 'date' },
           { name: 'activeTo', type: 'date' },
+          { name: 'bookingDuration', type: 'integer' },
           {
             name: 'createdAt',
             type: 'timestamp',
@@ -282,10 +241,6 @@ export class dbsetup1669448420554 implements MigrationInterface {
             name: 'buId',
             type: 'integer',
           },
-          {
-            name: 'eventTypeId',
-            type: 'integer',
-          },
           { name: 'clientEmail', type: 'varchar' },
           { name: 'clientFirstname', type: 'varchar' },
           { name: 'clientLastname', type: 'varchar' },
@@ -309,15 +264,6 @@ export class dbsetup1669448420554 implements MigrationInterface {
         columnNames: ['buId'],
         referencedColumnNames: ['id'],
         referencedTableName: 'business_owner',
-        onDelete: 'CASCADE',
-      }),
-    );
-    await queryRunner.createForeignKey(
-      'booking',
-      new TableForeignKey({
-        columnNames: ['eventTypeId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'event_type',
         onDelete: 'CASCADE',
       }),
     );
@@ -376,13 +322,8 @@ export class dbsetup1669448420554 implements MigrationInterface {
 
     try {
       await queryRunner.query(`INSERT INTO \`business_owner\` (\`id\`, \`name\` ) VALUES
-            (1, 'Men Haircut'),
-            (2, 'Woman Haircut')`);
-
-      await queryRunner.query(`INSERT INTO \`event_type\` (\`buId\`, \`name\`, \`numberOfSlot\`, \`isDefault\` ) VALUES
-        (1, 'Hair cut', 1, true),
-        (2, 'Hair coloring', 1, true),
-        (2, 'Hair cut', 1, false)`);
+            (1, 'Men Haircut - Hair Cut'),
+            (2, 'Woman Haircut - Hair Coloring')`);
 
       await queryRunner.query(`INSERT INTO \`unavailable_time_period\` (\`buId\`, \`name\`, \`from\`, \`to\`, \`affectToMonday\`, \`affectToTuesday\`, \`affectToWednesday\`, \`affectToThursday\`, \`affectToFriday\`, \`affectToSaturday\`, \`affectToSunday\` ) VALUES
         (1, 'Lunch Break', '12:00', '13:00', true, true, true, true, true, true, false),
@@ -395,9 +336,9 @@ export class dbsetup1669448420554 implements MigrationInterface {
             (1, 'Public holiday', '2022-11-28', true),
             (2, 'Public holiday', '2022-11-28', true)`);
 
-      await queryRunner.query(`INSERT INTO \`config_parameter\` (\`buId\`, \`maxClientsPerSlot\`, \`minutesPerSlot\`, \`breakBetweenSlotInMinute\`, \`mondayOpenFrom\`, \`mondayOpenTo\`, \`tuesdayOpenFrom\`, \`tuesdayOpenTo\`, \`wednesdayOpenFrom\`, \`wednesdayOpenTo\`, \`thursdayOpenFrom\`, \`thursdayOpenTo\`, \`fridayOpenFrom\`, \`fridayOpenTo\`, \`saturdayOpenFrom\`, \`saturdayOpenTo\`, \`sundayOpenFrom\`, \`sundayOpenTo\`, \`activeFrom\`, \`activeTo\` ) VALUES
-            (1, 3, 10, 5, '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '10:00', '22:00', null, null, '2022-11-01', '2022-12-31'),
-            (2, 3, 60, 10, '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '10:00', '22:00', null, null, '2022-11-01', '2022-12-31')`);
+      await queryRunner.query(`INSERT INTO \`config_parameter\` (\`buId\`, \`maxClientsPerSlot\`, \`minutesPerSlot\`, \`breakBetweenSlotInMinute\`, \`mondayOpenFrom\`, \`mondayOpenTo\`, \`tuesdayOpenFrom\`, \`tuesdayOpenTo\`, \`wednesdayOpenFrom\`, \`wednesdayOpenTo\`, \`thursdayOpenFrom\`, \`thursdayOpenTo\`, \`fridayOpenFrom\`, \`fridayOpenTo\`, \`saturdayOpenFrom\`, \`saturdayOpenTo\`, \`sundayOpenFrom\`, \`sundayOpenTo\`, \`activeFrom\`, \`activeTo\`, \`bookingDuration\` ) VALUES
+            (1, 3, 10, 5, '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '10:00', '22:00', null, null, '2022-11-01', '2022-12-31', 7),
+            (2, 3, 60, 10, '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '08:00', '20:00', '10:00', '22:00', null, null, '2022-11-01', '2022-12-31', 7)`);
     } catch (error) {
       throw error;
     }

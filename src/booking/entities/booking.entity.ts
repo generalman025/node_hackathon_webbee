@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import { BookingTimeSlot } from './booking-time-slot.entity';
 import { BusinessOwner } from './business-owner.entity';
-import { EventType } from './event-type.entity';
 
 @Entity()
 export class Booking {
@@ -17,9 +16,6 @@ export class Booking {
 
   @Column()
   buId: number;
-
-  @Column()
-  eventTypeId: number;
 
   @Column()
   clientEmail: string;
@@ -33,10 +29,6 @@ export class Booking {
   @ManyToOne(() => BusinessOwner, (bu) => bu.bookings)
   @JoinColumn({ name: 'buId' })
   businessOwner: BusinessOwner;
-
-  @ManyToOne(() => EventType, (eventType) => eventType.bookings)
-  @JoinColumn({ name: 'eventTypeId' })
-  eventType: EventType;
 
   @OneToMany(
     () => BookingTimeSlot,

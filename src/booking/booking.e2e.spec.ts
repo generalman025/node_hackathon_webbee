@@ -57,7 +57,7 @@ describe('events', () => {
   it(`POST /booking`, async () => {
     const body = {
       buId: 2,
-      date: '2022-12-20',
+      date: '2022-12-05',
       time: '13:00',
       contacts: [
         {
